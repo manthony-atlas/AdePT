@@ -142,6 +142,8 @@ static __device__ __forceinline__ void TransportElectrons(Track *electrons, cons
     if (currentTrack.nextState.IsOnBoundary()) {
       // For now, just count that we hit something.
       atomicAdd(&globalScoring->hits, 1);
+      // additional per volume info
+      atomicAdd(&scoringPerVolume->numHits[volumeID],1.0);
 
       activeQueue->push_back(slot);
       relocateQueue->push_back(slot);

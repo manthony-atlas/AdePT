@@ -81,7 +81,7 @@ __global__ void TransportGammas(Track *gammas, const adept::MParray *active, Sec
     if (currentTrack.nextState.IsOnBoundary()) {
       // For now, just count that we hit something.
       atomicAdd(&globalScoring->hits, 1);
-
+      atomicAdd(&scoringPerVolume->numHits[volumeID],1.0);
       activeQueue->push_back(slot);
       relocateQueue->push_back(slot);
 

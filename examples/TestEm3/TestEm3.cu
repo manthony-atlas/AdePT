@@ -271,15 +271,23 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
   COPCORE_CUDA_CHECK(cudaMalloc(&energyDeposit, sizeof(double) * numVolumes));
   COPCORE_CUDA_CHECK(cudaMemset(energyDeposit, 0, sizeof(double) * numVolumes));
 
+  //define the device ptr for numHits
+  double *numHits=nullptr;
+  COPCORE_CUDA_CHECK(cudaMalloc(&numHits,sizeof(double)*numVolumes));
+  //set memory to null
+  COPCORE_CUDA_CHECK(cudaMemset(numHits,0, sizeof(double)*numVolumes));
+
+
   // Allocate and initialize scoring and statistics.
   GlobalScoring *globalScoring = nullptr;
   COPCORE_CUDA_CHECK(cudaMalloc(&globalScoring, sizeof(GlobalScoring)));
   COPCORE_CUDA_CHECK(cudaMemset(globalScoring, 0, sizeof(GlobalScoring)));
 
   ScoringPerVolume *scoringPerVolume = nullptr;
-  ScoringPerVolume scoringPerVolume_devPtrs;
+  ScoringPerVolume scoringPerVolume_devPtrs;  
   scoringPerVolume_devPtrs.chargedTrackLength = chargedTrackLength;
   scoringPerVolume_devPtrs.energyDeposit      = energyDeposit;
+  scoringPerVolume_devPtrs.numHits=numHits;
   COPCORE_CUDA_CHECK(cudaMalloc(&scoringPerVolume, sizeof(ScoringPerVolume)));
   COPCORE_CUDA_CHECK(
       cudaMemcpy(scoringPerVolume, &scoringPerVolume_devPtrs, sizeof(ScoringPerVolume), cudaMemcpyHostToDevice));
@@ -441,18 +449,23 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
 
   // Transfer back scoring.
   COPCORE_CUDA_CHECK(cudaMemcpy(globalScoring_host, globalScoring, sizeof(GlobalScoring), cudaMemcpyDeviceToHost));
-
+  std::cout<<"Copied back global scoring"<<std::endl;
   // Transfer back the scoring per volume (charged track length and energy deposit).
   COPCORE_CUDA_CHECK(cudaMemcpy(scoringPerVolume_host->chargedTrackLength, scoringPerVolume_devPtrs.chargedTrackLength,
                                 sizeof(double) * numVolumes, cudaMemcpyDeviceToHost));
+  std::cout<<"Copied back charged track length"<<std::endl;
   COPCORE_CUDA_CHECK(cudaMemcpy(scoringPerVolume_host->energyDeposit, scoringPerVolume_devPtrs.energyDeposit,
                                 sizeof(double) * numVolumes, cudaMemcpyDeviceToHost));
-
+  
+  std::cout<<"Copied back deposited energy"<<std::endl;
+  COPCORE_CUDA_CHECK(cudaMemcpy(scoringPerVolume_host->numHits, scoringPerVolume_devPtrs.numHits,
+				sizeof(double) * numVolumes, cudaMemcpyDeviceToHost));
+  std::cout<<"Copied back numHits"<<std::endl;
   // Free resources.
   COPCORE_CUDA_CHECK(cudaFree(MCIndex_dev));
   COPCORE_CUDA_CHECK(cudaFree(chargedTrackLength));
   COPCORE_CUDA_CHECK(cudaFree(energyDeposit));
-
+  COPCORE_CUDA_CHECK(cudaFree(numHits));
   COPCORE_CUDA_CHECK(cudaFree(globalScoring));
   COPCORE_CUDA_CHECK(cudaFree(scoringPerVolume));
   COPCORE_CUDA_CHECK(cudaFree(stats_dev));

@@ -166,6 +166,7 @@ void PrintScoringPerVolume(const vecgeom::VPlacedVolume *placed, const ScoringPe
     auto id = daughter->id();
     std::cout << " ID " << id << " Charged-TrakL " << scoring->chargedTrackLength[id] / copcore::units::mm
               << " mm; Energy-Dep " << scoring->energyDeposit[id] / copcore::units::MeV << " MeV" << std::endl;
+    
     PrintScoringPerVolume(daughter, scoring, level + 1);
   }
 }
