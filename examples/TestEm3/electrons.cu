@@ -143,13 +143,13 @@ static __device__ __forceinline__ void TransportElectrons(Track *electrons, cons
       // For now, just count that we hit something.
       atomicAdd(&globalScoring->hits, 1);
       // additional per volume info
-      atomicAdd(&scoringPerVolume->numHits[volumeID],1.0);
+      atomicAdd(&scoringPerVolume->numHits[volumeID],1);
       //some debug, since CUDA allows it
-      int myID=volumeID;
-      double numHits=*(&scoringPerVolume->numHits[volumeID]);
+      //int myID=volumeID;
+      //double numHits=*(&scoringPerVolume->numHits[volumeID]);
       //lets look at a specific case and see what it does:
-      if (myID==10)
-	printf("Electrons: VolumeID %i, numHits %f \n",myID,numHits);
+      //      if (myID==10)
+      //	printf("Electrons: VolumeID %i, numHits %f \n",myID,numHits);
 
       activeQueue->push_back(slot);
       relocateQueue->push_back(slot);

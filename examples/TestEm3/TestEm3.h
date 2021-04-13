@@ -25,7 +25,7 @@ struct GlobalScoring {
 struct ScoringPerVolume {
   double *energyDeposit;
   double *chargedTrackLength;
-  double *numHits;
+  unsigned long long *numHits;
 };
 
 // Interface between C++ and CUDA.

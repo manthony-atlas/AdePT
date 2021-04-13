@@ -272,10 +272,10 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
   COPCORE_CUDA_CHECK(cudaMemset(energyDeposit, 0, sizeof(double) * numVolumes));
 
   //define the device ptr for numHits
-  double *numHits=nullptr;
-  COPCORE_CUDA_CHECK(cudaMalloc(&numHits,sizeof(double) * numVolumes));
+  unsigned long long *numHits=nullptr;
+  COPCORE_CUDA_CHECK(cudaMalloc(&numHits,sizeof(unsigned long long) * numVolumes));
   //set memory to null
-  COPCORE_CUDA_CHECK(cudaMemset(numHits,0, sizeof(double) * numVolumes));
+  COPCORE_CUDA_CHECK(cudaMemset(numHits,0, sizeof(unsigned long long) * numVolumes));
 
 
   // Allocate and initialize scoring and statistics.

@@ -207,9 +207,11 @@ int main(int argc, char *argv[])
   double startX = -0.25 * (WorldSizeX + CalorThickness);
   double chargedTrackLength[NumVolumes];
   double energyDeposit[NumVolumes];
+  unsigned long long numHits[NumVolumes];
   ScoringPerVolume scoringPerVolume;
   scoringPerVolume.chargedTrackLength = chargedTrackLength;
   scoringPerVolume.energyDeposit      = energyDeposit;
+  scoringPerVolume.numHits=numHits;
   GlobalScoring globalScoring;
 
   TestEm3(world, particles, energy, batch, startX, MCIndex, &scoringPerVolume, NumVolumes, &globalScoring);
@@ -253,12 +255,13 @@ int main(int argc, char *argv[])
   std::cout << " " << AbsorberMaterial << ": " << energyDepAbsorber / copcore::units::GeV << " GeV" << std::endl;
   // Accumulate per layer.
   std::cout << std::endl;
-  std::cout << "  Layer   Charged-TrakL [mm]   Energy-Dep [MeV]" << std::endl;
+  std::cout << "  Layer   Charged-TrakL [mm]   Energy-Dep [MeV]   nHits" << std::endl;
   for (int i = 0; i < NbOfLayers; i++) {
     int layerVolume        = 2 + i * (1 + NbOfAbsorbers);
     double chargedTrackLen = chargedTrackLength[layerVolume + 1] + chargedTrackLength[layerVolume + 2];
     double energyDep       = energyDeposit[layerVolume + 1] + energyDeposit[layerVolume + 2];
+    double nHits           = numHits[layerVolume+1]+numHits[layerVolume+2];
     std::cout << std::setw(5) << i << std::setw(20) << chargedTrackLen / copcore::units::mm << std::setw(20)
-              << energyDep / copcore::units::MeV << std::endl;
+              << energyDep / copcore::units::MeV <<std::setw(20) << nHits <<std::endl;
   }
 }
