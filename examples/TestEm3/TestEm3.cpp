@@ -208,10 +208,12 @@ int main(int argc, char *argv[])
   double chargedTrackLength[NumVolumes];
   double energyDeposit[NumVolumes];
   unsigned long long numHits[NumVolumes];
+  HitRecord hitrecord[NumVolumes];
   ScoringPerVolume scoringPerVolume;
   scoringPerVolume.chargedTrackLength = chargedTrackLength;
   scoringPerVolume.energyDeposit      = energyDeposit;
   scoringPerVolume.numHits=numHits;
+  scoringPerVolume.hitrecord=hitrecord;
   GlobalScoring globalScoring;
 
   TestEm3(world, particles, energy, batch, startX, MCIndex, &scoringPerVolume, NumVolumes, &globalScoring);

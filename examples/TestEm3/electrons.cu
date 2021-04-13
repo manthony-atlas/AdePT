@@ -106,7 +106,9 @@ static __device__ __forceinline__ void TransportElectrons(Track *electrons, cons
     double energyDeposit = theTrack->GetEnergyDeposit();
     atomicAdd(&globalScoring->energyDeposit, energyDeposit);
     atomicAdd(&scoringPerVolume->energyDeposit[volumeID], energyDeposit);
-
+    //now that we know it hit something, read off where it hit
+    
+    
     // Save the `number-of-interaction-left` in our track.
     for (int ip = 0; ip < 3; ++ip) {
       double numIALeft           = theTrack->GetNumIALeft(ip);
@@ -151,6 +153,13 @@ static __device__ __forceinline__ void TransportElectrons(Track *electrons, cons
       //      if (myID==10)
       //	printf("Electrons: VolumeID %i, numHits %f \n",myID,numHits);
 
+      //now that we know it hit something get the position of said hit
+      vecgeom::Vector3D<vecgeom::Precision> hit_location=currentTrack.pos;
+      //retrieve the x,y,z coordinates from the hit location
+      double hit_location_x_pos=hit_location[0];
+      double hit_location_y_pos=hit_location[1];
+      double hit_location_z_pos=hit_location[2];
+      printf("VolumeID %i Hit location: X= %f Y= %f Z=%f \n",volumeID,hit_location_x_pos,hit_location_y_pos,hit_location_z_pos);
       activeQueue->push_back(slot);
       relocateQueue->push_back(slot);
 

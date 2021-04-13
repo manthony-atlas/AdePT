@@ -277,7 +277,26 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
   //set memory to null
   COPCORE_CUDA_CHECK(cudaMemset(numHits,0, sizeof(unsigned long long) * numVolumes));
 
+  //see if my dummy hit record will work ok in cudamalloc
 
+  //need to cudamalloc each individual component of the struct then the struct itself.
+  //set the nullptr
+  HitRecord *myhitrecord=nullptr;
+  double *pos_x=nullptr;
+  double *pos_y=nullptr;
+  double *pos_z=nullptr;
+  // init memory on CUDA
+  COPCORE_CUDA_CHECK(cudaMalloc(&pos_x,sizeof(double) * numVolumes));
+  COPCORE_CUDA_CHECK(cudaMalloc(&pos_y,sizeof(double) * numVolumes));
+  COPCORE_CUDA_CHECK(cudaMalloc(&pos_z,sizeof(double) * numVolumes));
+  // set to nullon CUDA
+  COPCORE_CUDA_CHECK(cudaMemset(pos_x,0,sizeof(double) * numVolumes));
+  COPCORE_CUDA_CHECK(cudaMemset(pos_y,0,sizeof(double) * numVolumes));
+  COPCORE_CUDA_CHECK(cudaMemset(pos_z,0,sizeof(double) * numVolumes));
+  // size of struct is going to be N_variables*size_of_largest_variable, not sum of all components inside.
+  COPCORE_CUDA_CHECK(cudaMalloc(&myhitrecord,sizeof(myhitrecord) * numVolumes ));
+  COPCORE_CUDA_CHECK(cudaMemset(myhitrecord,0,sizeof(myhitrecord) * numVolumes ));
+  // END of myhitrecord block/implementation
   // Allocate and initialize scoring and statistics.
   GlobalScoring *globalScoring = nullptr;
   COPCORE_CUDA_CHECK(cudaMalloc(&globalScoring, sizeof(GlobalScoring)));
@@ -459,12 +478,18 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
   
   std::cout<<"Copied back deposited energy"<<std::endl;
   COPCORE_CUDA_CHECK(cudaMemcpy(scoringPerVolume_host->numHits, scoringPerVolume_devPtrs.numHits,sizeof(double) * numVolumes, cudaMemcpyDeviceToHost));
+  COPCORE_CUDA_CHECK(cudaMemcpy(scoringPerVolume_host->hitrecord, scoringPerVolume_devPtrs.hitrecord,sizeof(myhitrecord), cudaMemcpyDeviceToHost));
   std::cout<<"Copied back numHits"<<std::endl;
   // Free resources.
   COPCORE_CUDA_CHECK(cudaFree(MCIndex_dev));
   COPCORE_CUDA_CHECK(cudaFree(chargedTrackLength));
   COPCORE_CUDA_CHECK(cudaFree(energyDeposit));
   COPCORE_CUDA_CHECK(cudaFree(numHits));
+  // clear entries in the hit record
+  COPCORE_CUDA_CHECK(cudaFree(pos_x));
+  COPCORE_CUDA_CHECK(cudaFree(pos_y));
+  COPCORE_CUDA_CHECK(cudaFree(pos_z));
+  COPCORE_CUDA_CHECK(cudaFree(myhitrecord));
   COPCORE_CUDA_CHECK(cudaFree(globalScoring));
   COPCORE_CUDA_CHECK(cudaFree(scoringPerVolume));
   COPCORE_CUDA_CHECK(cudaFree(stats_dev));

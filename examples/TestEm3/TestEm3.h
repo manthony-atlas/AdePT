@@ -21,11 +21,17 @@ struct GlobalScoring {
   unsigned long long numElectrons;
   unsigned long long numPositrons;
 };
-
+struct HitRecord{
+  // new struct for the Hits specifically
+  double *pos_x;
+  double *pos_y;
+  double *pos_z;
+};
 struct ScoringPerVolume {
   double *energyDeposit;
   double *chargedTrackLength;
   unsigned long long *numHits;
+  HitRecord *hitrecord;
 };
 
 // Interface between C++ and CUDA.
