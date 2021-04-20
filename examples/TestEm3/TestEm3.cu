@@ -197,7 +197,7 @@ __global__ void ClearQueue(adept::MParray *queue)
 
 void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double energy, int batch, double startX,
              const int *MCIndex_host, ScoringPerVolume *scoringPerVolume_host, int numVolumes,
-             GlobalScoring *globalScoring_host)
+             GlobalScoring *globalScoring_host, HitRecord *hitRecord_host)
 {
   auto &cudaManager = vecgeom::cxx::CudaManager::Instance();
   cudaManager.LoadGeometry(world);
@@ -277,26 +277,9 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
   //set memory to null
   COPCORE_CUDA_CHECK(cudaMemset(numHits,0, sizeof(unsigned long long) * numVolumes));
 
-  //see if my dummy hit record will work ok in cudamalloc
 
-  //need to cudamalloc each individual component of the struct then the struct itself.
-  //set the nullptr
-  HitRecord *myhitrecord=nullptr;
-  double *pos_x=nullptr;
-  double *pos_y=nullptr;
-  double *pos_z=nullptr;
-  // init memory on CUDA
-  COPCORE_CUDA_CHECK(cudaMalloc(&pos_x,sizeof(double) * numVolumes));
-  COPCORE_CUDA_CHECK(cudaMalloc(&pos_y,sizeof(double) * numVolumes));
-  COPCORE_CUDA_CHECK(cudaMalloc(&pos_z,sizeof(double) * numVolumes));
-  // set to nullon CUDA
-  COPCORE_CUDA_CHECK(cudaMemset(pos_x,0,sizeof(double) * numVolumes));
-  COPCORE_CUDA_CHECK(cudaMemset(pos_y,0,sizeof(double) * numVolumes));
-  COPCORE_CUDA_CHECK(cudaMemset(pos_z,0,sizeof(double) * numVolumes));
-  // size of struct is going to be N_variables*size_of_largest_variable, not sum of all components inside.
-  COPCORE_CUDA_CHECK(cudaMalloc(&myhitrecord,sizeof(myhitrecord) * numVolumes ));
-  COPCORE_CUDA_CHECK(cudaMemset(myhitrecord,0,sizeof(myhitrecord) * numVolumes ));
-  // END of myhitrecord block/implementation
+
+  
   // Allocate and initialize scoring and statistics.
   GlobalScoring *globalScoring = nullptr;
   COPCORE_CUDA_CHECK(cudaMalloc(&globalScoring, sizeof(GlobalScoring)));
@@ -310,6 +293,48 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
   COPCORE_CUDA_CHECK(cudaMalloc(&scoringPerVolume, sizeof(ScoringPerVolume)));
   COPCORE_CUDA_CHECK(
       cudaMemcpy(scoringPerVolume, &scoringPerVolume_devPtrs, sizeof(ScoringPerVolume), cudaMemcpyHostToDevice));
+
+
+  //Hit record
+  //need to cudamalloc each individual component of the struct then the struct itself.
+  //set the nullptr
+  int *hit_volumeID=nullptr;
+  double *pos_x=nullptr;
+  double *pos_y=nullptr;
+  double *pos_z=nullptr;
+
+  // Since we init as a 1D array in arr[nVols* nHits], with nHits being 100k
+  int max_nHits_per_volume=1000;
+  // init memory on CUDA
+  COPCORE_CUDA_CHECK(cudaMalloc(&pos_x,sizeof(double) * numVolumes * max_nHits_per_volume));
+  COPCORE_CUDA_CHECK(cudaMalloc(&pos_y,sizeof(double) * numVolumes * max_nHits_per_volume));
+  COPCORE_CUDA_CHECK(cudaMalloc(&pos_z,sizeof(double) * numVolumes * max_nHits_per_volume));
+  COPCORE_CUDA_CHECK(cudaMalloc(&hit_volumeID,sizeof(int) * numVolumes * max_nHits_per_volume));
+  // set all arrays to 0
+  COPCORE_CUDA_CHECK(cudaMemset(pos_x,0,sizeof(double) * numVolumes * max_nHits_per_volume));
+  COPCORE_CUDA_CHECK(cudaMemset(pos_y,0,sizeof(double) * numVolumes * max_nHits_per_volume));
+  COPCORE_CUDA_CHECK(cudaMemset(pos_z,0,sizeof(double) * numVolumes * max_nHits_per_volume));
+  COPCORE_CUDA_CHECK(cudaMemset(hit_volumeID,0,sizeof(int) * numVolumes * max_nHits_per_volume));
+  // Now allocate the struct now the attributes are on the GPU
+  HitRecord *hitRecord=nullptr;
+  HitRecord hitRecord_devPtrs;
+
+  hitRecord_devPtrs.hit_volumeID=hit_volumeID;
+  hitRecord_devPtrs.pos_x=pos_x;
+  hitRecord_devPtrs.pos_y=pos_y;
+  hitRecord_devPtrs.pos_z=pos_z;
+
+  COPCORE_CUDA_CHECK(cudaMalloc(&hitRecord, sizeof(hitRecord)));
+  COPCORE_CUDA_CHECK(cudaMemcpy(hitRecord,&hitRecord_devPtrs,sizeof(hitRecord),cudaMemcpyHostToDevice));
+		     
+  // END of myhitrecord block/implementation
+
+
+
+
+
+
+
 
   Stats *stats_dev = nullptr;
   COPCORE_CUDA_CHECK(cudaMalloc(&stats_dev, sizeof(Stats)));
@@ -367,7 +392,7 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
 
         TransportElectrons<<<transportBlocks, TransportThreads, 0, electrons.stream>>>(
             electrons.tracks, electrons.queues.currentlyActive, secondaries, electrons.queues.nextActive,
-            electrons.queues.relocate, globalScoring, scoringPerVolume);
+            electrons.queues.relocate, globalScoring, scoringPerVolume,hitRecord);
 
         RelocateToNextVolume<<<relocateBlocks, RelocateThreads, 0, electrons.stream>>>(electrons.tracks,
                                                                                        electrons.queues.relocate);
@@ -386,7 +411,7 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
 
         TransportPositrons<<<transportBlocks, TransportThreads, 0, positrons.stream>>>(
             positrons.tracks, positrons.queues.currentlyActive, secondaries, positrons.queues.nextActive,
-            positrons.queues.relocate, globalScoring, scoringPerVolume);
+            positrons.queues.relocate, globalScoring, scoringPerVolume,hitRecord);
 
         RelocateToNextVolume<<<relocateBlocks, RelocateThreads, 0, positrons.stream>>>(positrons.tracks,
                                                                                        positrons.queues.relocate);
@@ -478,20 +503,32 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
   
   std::cout<<"Copied back deposited energy"<<std::endl;
   COPCORE_CUDA_CHECK(cudaMemcpy(scoringPerVolume_host->numHits, scoringPerVolume_devPtrs.numHits,sizeof(double) * numVolumes, cudaMemcpyDeviceToHost));
-  COPCORE_CUDA_CHECK(cudaMemcpy(scoringPerVolume_host->hitrecord, scoringPerVolume_devPtrs.hitrecord,sizeof(myhitrecord), cudaMemcpyDeviceToHost));
+
   std::cout<<"Copied back numHits"<<std::endl;
+  //
+  std::cout<<"Now copying back hit record"<<std::endl;
+  
+  COPCORE_CUDA_CHECK(cudaMemcpy(hitRecord_host->hit_volumeID, hitRecord_devPtrs.hit_volumeID,sizeof(double) * numVolumes * max_nHits_per_volume, cudaMemcpyDeviceToHost));
+  std::cout<<"Copied back the hit record volume ID"<<std::endl;
+
+
   // Free resources.
   COPCORE_CUDA_CHECK(cudaFree(MCIndex_dev));
   COPCORE_CUDA_CHECK(cudaFree(chargedTrackLength));
   COPCORE_CUDA_CHECK(cudaFree(energyDeposit));
   COPCORE_CUDA_CHECK(cudaFree(numHits));
+
+  COPCORE_CUDA_CHECK(cudaFree(globalScoring));
+  COPCORE_CUDA_CHECK(cudaFree(scoringPerVolume));
+
   // clear entries in the hit record
+
   COPCORE_CUDA_CHECK(cudaFree(pos_x));
   COPCORE_CUDA_CHECK(cudaFree(pos_y));
   COPCORE_CUDA_CHECK(cudaFree(pos_z));
-  COPCORE_CUDA_CHECK(cudaFree(myhitrecord));
-  COPCORE_CUDA_CHECK(cudaFree(globalScoring));
-  COPCORE_CUDA_CHECK(cudaFree(scoringPerVolume));
+  COPCORE_CUDA_CHECK(cudaFree(hit_volumeID));
+  COPCORE_CUDA_CHECK(cudaFree(hitRecord));
+
   COPCORE_CUDA_CHECK(cudaFree(stats_dev));
   COPCORE_CUDA_CHECK(cudaFreeHost(stats));
 

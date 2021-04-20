@@ -30,7 +30,9 @@ template <bool IsElectron>
 static __device__ __forceinline__ void TransportElectrons(Track *electrons, const adept::MParray *active,
                                                           Secondaries &secondaries, adept::MParray *activeQueue,
                                                           adept::MParray *relocateQueue, GlobalScoring *globalScoring,
-                                                          ScoringPerVolume *scoringPerVolume)
+                                                          ScoringPerVolume *scoringPerVolume,
+							  HitRecord *hitRecord
+							  )
 {
   constexpr int Charge  = IsElectron ? -1 : 1;
   constexpr double Mass = copcore::units::kElectronMassC2;
@@ -159,7 +161,20 @@ static __device__ __forceinline__ void TransportElectrons(Track *electrons, cons
       double hit_location_x_pos=hit_location[0];
       double hit_location_y_pos=hit_location[1];
       double hit_location_z_pos=hit_location[2];
-      printf("VolumeID %i Hit location: X= %f Y= %f Z=%f \n",volumeID,hit_location_x_pos,hit_location_y_pos,hit_location_z_pos);
+      // let's see if we can also get the thread ID
+      int threadIndex=threadIdx.x+blockIdx.x*blockDim.x; 
+      
+      
+      printf("ThreadID %i, VolumeID %i, Hit location: X= %f Y= %f Z=%f \n",threadIndex,volumeID,hit_location_x_pos,hit_location_y_pos,hit_location_z_pos);
+      //now fill the hit record
+      // since we may have more threads than entries in an array, we might want to check that its ok
+
+      int hitRecord_length=sizeof(hitRecord->hit_volumeID)/(sizeof(hitRecord->hit_volumeID[0]));
+      if(threadIndex<=hitRecord_length){
+	hitRecord->hit_volumeID[threadIndex]=volumeID;
+      }
+
+      
       activeQueue->push_back(slot);
       relocateQueue->push_back(slot);
 
@@ -266,15 +281,15 @@ static __device__ __forceinline__ void TransportElectrons(Track *electrons, cons
 // Instantiate kernels for electrons and positrons.
 __global__ void TransportElectrons(Track *electrons, const adept::MParray *active, Secondaries secondaries,
                                    adept::MParray *activeQueue, adept::MParray *relocateQueue,
-                                   GlobalScoring *globalScoring, ScoringPerVolume *scoringPerVolume)
+                                   GlobalScoring *globalScoring, ScoringPerVolume *scoringPerVolume,HitRecord *hitRecord)
 {
   TransportElectrons</*IsElectron*/ true>(electrons, active, secondaries, activeQueue, relocateQueue, globalScoring,
-                                          scoringPerVolume);
+                                          scoringPerVolume, hitRecord);
 }
 __global__ void TransportPositrons(Track *positrons, const adept::MParray *active, Secondaries secondaries,
                                    adept::MParray *activeQueue, adept::MParray *relocateQueue,
-                                   GlobalScoring *globalScoring, ScoringPerVolume *scoringPerVolume)
+                                   GlobalScoring *globalScoring, ScoringPerVolume *scoringPerVolume, HitRecord *hitRecord)
 {
   TransportElectrons</*IsElectron*/ false>(positrons, active, secondaries, activeQueue, relocateQueue, globalScoring,
-                                           scoringPerVolume);
+                                           scoringPerVolume,hitRecord);
 }

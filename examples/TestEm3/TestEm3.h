@@ -26,16 +26,16 @@ struct HitRecord{
   double *pos_x;
   double *pos_y;
   double *pos_z;
+  int *hit_volumeID; // volumeID of the object which generated the hit
 };
 struct ScoringPerVolume {
   double *energyDeposit;
   double *chargedTrackLength;
   unsigned long long *numHits;
-  HitRecord *hitrecord;
 };
 
 // Interface between C++ and CUDA.
 void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double energy, int batch, double startX,
-             const int *MCIndex, ScoringPerVolume *scoringPerVolume, int numVolumes, GlobalScoring *globalScoring);
+             const int *MCIndex, ScoringPerVolume *scoringPerVolume, int numVolumes, GlobalScoring *globalScoring,HitRecord *hitRecord);
 
 #endif

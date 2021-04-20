@@ -85,6 +85,9 @@ __global__ void TransportGammas(Track *gammas, const adept::MParray *active, Sec
       //      double numHits=*(&scoringPerVolume->numHits[volumeID]);
       //      if(volumeID==10)
       //	printf("Photons: VolumeID %i, numHits %f \n",volumeID,numHits);
+
+      // if we have a hit here
+      
       activeQueue->push_back(slot);
       relocateQueue->push_back(slot);
 

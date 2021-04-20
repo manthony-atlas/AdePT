@@ -208,15 +208,37 @@ int main(int argc, char *argv[])
   double chargedTrackLength[NumVolumes];
   double energyDeposit[NumVolumes];
   unsigned long long numHits[NumVolumes];
-  HitRecord hitrecord[NumVolumes];
+
   ScoringPerVolume scoringPerVolume;
   scoringPerVolume.chargedTrackLength = chargedTrackLength;
   scoringPerVolume.energyDeposit      = energyDeposit;
   scoringPerVolume.numHits=numHits;
-  scoringPerVolume.hitrecord=hitrecord;
+
   GlobalScoring globalScoring;
 
-  TestEm3(world, particles, energy, batch, startX, MCIndex, &scoringPerVolume, NumVolumes, &globalScoring);
+  // HitRecord implementation
+  // init positions of the hit
+  
+  // need 2D array: first containing volume ID, second containing the value (so need to alloc number of hits)
+  // this last number is a "chicken/egg" problem -really need dynamic GPU memory allocation here!! As the number of hits per volume is not known apriori
+  // Set it to 100k at the moment for testing
+  
+  int max_nHits_per_volume=1000;
+  double hit_pos_x[NumVolumes * max_nHits_per_volume]; 
+  double hit_pos_y[NumVolumes * max_nHits_per_volume];
+  double hit_pos_z[NumVolumes * max_nHits_per_volume];
+  int myhit_volumeID[NumVolumes * max_nHits_per_volume];
+  HitRecord hitRecord;
+  hitRecord.pos_x=hit_pos_x;
+  hitRecord.pos_y=hit_pos_y;
+  hitRecord.pos_z=hit_pos_z;
+  hitRecord.hit_volumeID=myhit_volumeID;
+  //end of hit record
+
+
+
+
+  TestEm3(world, particles, energy, batch, startX, MCIndex, &scoringPerVolume, NumVolumes, &globalScoring, &hitRecord);
 
   std::cout << std::endl;
   std::cout << std::endl;
