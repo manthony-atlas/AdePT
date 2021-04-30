@@ -27,15 +27,18 @@ struct HitRecord{
   double *pos_y;
   double *pos_z;
   int *hit_volumeID; // volumeID of the object which generated the hit
+  int EventNumber; // Basically this is because each event might be launched asynchronously - would prefer to connect this in a better way
 };
 struct ScoringPerVolume {
   double *energyDeposit;
   double *chargedTrackLength;
   unsigned long long *numHits;
 };
-
+struct ScoringPerParticle{
+  int *numHits_per_particle;
+};
 // Interface between C++ and CUDA.
 void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double energy, int batch, double startX,
-             const int *MCIndex, ScoringPerVolume *scoringPerVolume, int numVolumes, GlobalScoring *globalScoring,HitRecord *hitRecord);
+             const int *MCIndex, ScoringPerVolume *scoringPerVolume, int numVolumes, GlobalScoring *globalScoring,HitRecord *hitRecord, ScoringPerParticle *scoringPerParticle);
 
 #endif

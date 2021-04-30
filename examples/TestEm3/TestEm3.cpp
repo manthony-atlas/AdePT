@@ -235,10 +235,14 @@ int main(int argc, char *argv[])
   hitRecord.hit_volumeID=myhit_volumeID;
   //end of hit record
 
+  ScoringPerParticle scoringPerParticle;
+  int nparticle=particles;
+  int nhits_per_particle[nparticle];
+  
+  scoringPerParticle.numHits_per_particle=nhits_per_particle;
+  
 
-
-
-  TestEm3(world, particles, energy, batch, startX, MCIndex, &scoringPerVolume, NumVolumes, &globalScoring, &hitRecord);
+  TestEm3(world, particles, energy, batch, startX, MCIndex, &scoringPerVolume, NumVolumes, &globalScoring, &hitRecord, &scoringPerParticle);
 
   std::cout << std::endl;
   std::cout << std::endl;
@@ -288,4 +292,16 @@ int main(int argc, char *argv[])
     std::cout << std::setw(5) << i << std::setw(20) << chargedTrackLen / copcore::units::mm << std::setw(20)
               << energyDep / copcore::units::MeV <<std::setw(20) << nHits <<std::endl;
   }
+
+  std::cout<<"EVENT/PARTICLE LEVEL OBSERVABLES: "<<std::endl;
+  std::cout<<"----------------------------------"<<std::endl;
+
+  for(int itr=0; itr<nparticle; itr++){    
+    int nHits=scoringPerParticle.numHits_per_particle[itr];
+    if(nHits>0){
+      std::cout<<"Event/Particle number: "<<itr<<", nHits: "<<nHits<<std::endl;
+    }
+  }
+  
+
 }

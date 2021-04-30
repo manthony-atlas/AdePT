@@ -197,7 +197,7 @@ __global__ void ClearQueue(adept::MParray *queue)
 
 void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double energy, int batch, double startX,
              const int *MCIndex_host, ScoringPerVolume *scoringPerVolume_host, int numVolumes,
-             GlobalScoring *globalScoring_host, HitRecord *hitRecord_host)
+             GlobalScoring *globalScoring_host, HitRecord *hitRecord_host,ScoringPerParticle *scoringPerParticle_host)
 {
   auto &cudaManager = vecgeom::cxx::CudaManager::Instance();
   cudaManager.LoadGeometry(world);
@@ -306,15 +306,15 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
   // Since we init as a 1D array in arr[nVols* nHits], with nHits being 100k
   int max_nHits_per_volume=1000;
   // init memory on CUDA
-  COPCORE_CUDA_CHECK(cudaMalloc(&pos_x,sizeof(double) * numVolumes * max_nHits_per_volume));
-  COPCORE_CUDA_CHECK(cudaMalloc(&pos_y,sizeof(double) * numVolumes * max_nHits_per_volume));
-  COPCORE_CUDA_CHECK(cudaMalloc(&pos_z,sizeof(double) * numVolumes * max_nHits_per_volume));
-  COPCORE_CUDA_CHECK(cudaMalloc(&hit_volumeID,sizeof(int) * numVolumes * max_nHits_per_volume));
+  COPCORE_CUDA_CHECK(cudaMalloc(&pos_x,sizeof(double) * numVolumes * max_nHits_per_volume* numParticles));
+  COPCORE_CUDA_CHECK(cudaMalloc(&pos_y,sizeof(double) * numVolumes * max_nHits_per_volume* numParticles));
+  COPCORE_CUDA_CHECK(cudaMalloc(&pos_z,sizeof(double) * numVolumes * max_nHits_per_volume* numParticles));
+  COPCORE_CUDA_CHECK(cudaMalloc(&hit_volumeID,sizeof(int) * numVolumes * max_nHits_per_volume* numParticles));
   // set all arrays to 0
-  COPCORE_CUDA_CHECK(cudaMemset(pos_x,0,sizeof(double) * numVolumes * max_nHits_per_volume));
-  COPCORE_CUDA_CHECK(cudaMemset(pos_y,0,sizeof(double) * numVolumes * max_nHits_per_volume));
-  COPCORE_CUDA_CHECK(cudaMemset(pos_z,0,sizeof(double) * numVolumes * max_nHits_per_volume));
-  COPCORE_CUDA_CHECK(cudaMemset(hit_volumeID,0,sizeof(int) * numVolumes * max_nHits_per_volume));
+  COPCORE_CUDA_CHECK(cudaMemset(pos_x,0,sizeof(double) * numVolumes * max_nHits_per_volume * numParticles));
+  COPCORE_CUDA_CHECK(cudaMemset(pos_y,0,sizeof(double) * numVolumes * max_nHits_per_volume * numParticles));
+  COPCORE_CUDA_CHECK(cudaMemset(pos_z,0,sizeof(double) * numVolumes * max_nHits_per_volume * numParticles));
+  COPCORE_CUDA_CHECK(cudaMemset(hit_volumeID,0,sizeof(int) * numVolumes * max_nHits_per_volume * numParticles));
   // Now allocate the struct now the attributes are on the GPU
   HitRecord *hitRecord=nullptr;
   HitRecord hitRecord_devPtrs;
@@ -328,10 +328,24 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
   COPCORE_CUDA_CHECK(cudaMemcpy(hitRecord,&hitRecord_devPtrs,sizeof(hitRecord),cudaMemcpyHostToDevice));
 		     
   // END of myhitrecord block/implementation
+  //event level counters
 
+    
+  //init the relevant pieces in memory on GPU
+  int *nhits_per_particle=nullptr;
+  
+  COPCORE_CUDA_CHECK(cudaMalloc(&nhits_per_particle,sizeof(int) * numParticles ));
+  COPCORE_CUDA_CHECK(cudaMemset(nhits_per_particle,0,sizeof(int) * numParticles ));
+		     
 
+  ScoringPerParticle *scoringPerParticle=nullptr;
+  ScoringPerParticle scoringPerParticle_devPtrs;
 
-
+  scoringPerParticle_devPtrs.numHits_per_particle=nhits_per_particle;
+  
+  
+  COPCORE_CUDA_CHECK(cudaMalloc(&scoringPerParticle,sizeof(scoringPerParticle)));
+  COPCORE_CUDA_CHECK(cudaMemcpy(scoringPerParticle,&scoringPerParticle_devPtrs,sizeof(scoringPerParticle),cudaMemcpyHostToDevice));
 
 
 
@@ -349,7 +363,7 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
     std::cout << startEvent << " ... " << std::flush;
     int left  = numParticles - startEvent + 1;
     int chunk = std::min(left, batch);
-
+    std::cout<<"DEBUG::Event "<<startEvent<<std::endl;
     SlotManager slotManagerInit(Capacity);
     for (int i = 0; i < ParticleType::NumParticleTypes; i++) {
       COPCORE_CUDA_CHECK(cudaMemcpy(particles[i].slotManager, &slotManagerInit, ManagerSize, cudaMemcpyHostToDevice));
@@ -374,7 +388,15 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
 
     int inFlight;
     int iterNo = 0;
+    
 
+
+
+    int event_number_dev=startEvent;
+    int* event_number=nullptr;
+    COPCORE_CUDA_CHECK(cudaMalloc(&event_number,sizeof(int)));
+    COPCORE_CUDA_CHECK(cudaMemcpy(event_number,&event_number_dev,sizeof(int),cudaMemcpyHostToDevice));
+    
     do {
       Secondaries secondaries = {
           .electrons = {electrons.tracks, electrons.slotManager, electrons.queues.nextActive},
@@ -391,8 +413,16 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
         relocateBlocks = std::min(numElectrons, MaxBlocks);
 
         TransportElectrons<<<transportBlocks, TransportThreads, 0, electrons.stream>>>(
-            electrons.tracks, electrons.queues.currentlyActive, secondaries, electrons.queues.nextActive,
-            electrons.queues.relocate, globalScoring, scoringPerVolume,hitRecord);
+										       electrons.tracks, 
+										       electrons.queues.currentlyActive,
+										       secondaries, 
+										       electrons.queues.nextActive,
+										       electrons.queues.relocate,
+										       globalScoring,
+										       scoringPerVolume,
+										       hitRecord,
+										       event_number,
+										       scoringPerParticle);
 
         RelocateToNextVolume<<<relocateBlocks, RelocateThreads, 0, electrons.stream>>>(electrons.tracks,
                                                                                        electrons.queues.relocate);
@@ -410,8 +440,16 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
         relocateBlocks = std::min(numPositrons, MaxBlocks);
 
         TransportPositrons<<<transportBlocks, TransportThreads, 0, positrons.stream>>>(
-            positrons.tracks, positrons.queues.currentlyActive, secondaries, positrons.queues.nextActive,
-            positrons.queues.relocate, globalScoring, scoringPerVolume,hitRecord);
+            positrons.tracks,
+	    positrons.queues.currentlyActive,
+	    secondaries,
+	    positrons.queues.nextActive,
+            positrons.queues.relocate,
+	    globalScoring,
+	    scoringPerVolume,
+	    hitRecord,
+	    event_number,
+	    scoringPerParticle);
 
         RelocateToNextVolume<<<relocateBlocks, RelocateThreads, 0, positrons.stream>>>(positrons.tracks,
                                                                                        positrons.queues.relocate);
@@ -485,6 +523,7 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
       COPCORE_CUDA_CHECK(cudaStreamSynchronize(stream));
       std::cout << " ... ";
     }
+    COPCORE_CUDA_CHECK(cudaFree(event_number));
   }
   std::cout << "done!" << std::endl;
 
@@ -505,11 +544,14 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
   COPCORE_CUDA_CHECK(cudaMemcpy(scoringPerVolume_host->numHits, scoringPerVolume_devPtrs.numHits,sizeof(double) * numVolumes, cudaMemcpyDeviceToHost));
 
   std::cout<<"Copied back numHits"<<std::endl;
+
+  COPCORE_CUDA_CHECK(cudaMemcpy(scoringPerParticle_host->numHits_per_particle,scoringPerParticle_devPtrs.numHits_per_particle,sizeof(int) * numParticles,cudaMemcpyDeviceToHost ));
   //
-  std::cout<<"Now copying back hit record"<<std::endl;
+
+  //std::cout<<"Now copying back hit record"<<std::endl;
   
-  COPCORE_CUDA_CHECK(cudaMemcpy(hitRecord_host->hit_volumeID, hitRecord_devPtrs.hit_volumeID,sizeof(double) * numVolumes * max_nHits_per_volume, cudaMemcpyDeviceToHost));
-  std::cout<<"Copied back the hit record volume ID"<<std::endl;
+  //  COPCORE_CUDA_CHECK(cudaMemcpy(hitRecord_host->hit_volumeID, hitRecord_devPtrs.hit_volumeID,sizeof(double) * numVolumes * max_nHits_per_volume, cudaMemcpyDeviceToHost));
+  //  std::cout<<"Copied back the hit record volume ID"<<std::endl;
 
 
   // Free resources.
@@ -520,7 +562,8 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
 
   COPCORE_CUDA_CHECK(cudaFree(globalScoring));
   COPCORE_CUDA_CHECK(cudaFree(scoringPerVolume));
-
+  COPCORE_CUDA_CHECK(cudaFree(nhits_per_particle));
+  COPCORE_CUDA_CHECK(cudaFree(scoringPerEvent));
   // clear entries in the hit record
 
   COPCORE_CUDA_CHECK(cudaFree(pos_x));
@@ -531,9 +574,9 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
 
   COPCORE_CUDA_CHECK(cudaFree(stats_dev));
   COPCORE_CUDA_CHECK(cudaFreeHost(stats));
-
+  
   COPCORE_CUDA_CHECK(cudaStreamDestroy(stream));
-
+  
   for (int i = 0; i < ParticleType::NumParticleTypes; i++) {
     COPCORE_CUDA_CHECK(cudaFree(particles[i].tracks));
     COPCORE_CUDA_CHECK(cudaFree(particles[i].slotManager));

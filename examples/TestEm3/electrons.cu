@@ -27,11 +27,14 @@ __device__ struct G4HepEmElectronManager electronManager;
 // applying the continuous effects and maybe a discrete process that could
 // generate secondaries.
 template <bool IsElectron>
-static __device__ __forceinline__ void TransportElectrons(Track *electrons, const adept::MParray *active,
+static __device__ __forceinline__ void TransportElectrons(Track *electrons, 
+							  const adept::MParray *active,
                                                           Secondaries &secondaries, adept::MParray *activeQueue,
                                                           adept::MParray *relocateQueue, GlobalScoring *globalScoring,
                                                           ScoringPerVolume *scoringPerVolume,
-							  HitRecord *hitRecord
+							  HitRecord *hitRecord,
+							  int *eventNumber,
+							  ScoringPerParticle *scoringPerParticle
 							  )
 {
   constexpr int Charge  = IsElectron ? -1 : 1;
@@ -163,18 +166,11 @@ static __device__ __forceinline__ void TransportElectrons(Track *electrons, cons
       double hit_location_z_pos=hit_location[2];
       // let's see if we can also get the thread ID
       int threadIndex=threadIdx.x+blockIdx.x*blockDim.x; 
-      
-      
-      printf("ThreadID %i, VolumeID %i, Hit location: X= %f Y= %f Z=%f \n",threadIndex,volumeID,hit_location_x_pos,hit_location_y_pos,hit_location_z_pos);
-      //now fill the hit record
-      // since we may have more threads than entries in an array, we might want to check that its ok
-
-      int hitRecord_length=sizeof(hitRecord->hit_volumeID)/(sizeof(hitRecord->hit_volumeID[0]));
-      if(threadIndex<=hitRecord_length){
-	hitRecord->hit_volumeID[threadIndex]=volumeID;
-      }
-
-      
+      // de-ref ptr to get original val
+      int evtnum=*eventNumber;
+      printf("Event No.: %i, ThreadID %i, VolumeID %i, Hit location: X= %f Y= %f Z=%f \n",evtnum,threadIndex,volumeID,hit_location_x_pos,hit_location_y_pos,hit_location_z_pos);
+      //now fill our event level counter
+      atomicAdd(&scoringPerParticle->numHits_per_particle[evtnum],1);            
       activeQueue->push_back(slot);
       relocateQueue->push_back(slot);
 
@@ -279,17 +275,51 @@ static __device__ __forceinline__ void TransportElectrons(Track *electrons, cons
 }
 
 // Instantiate kernels for electrons and positrons.
-__global__ void TransportElectrons(Track *electrons, const adept::MParray *active, Secondaries secondaries,
-                                   adept::MParray *activeQueue, adept::MParray *relocateQueue,
-                                   GlobalScoring *globalScoring, ScoringPerVolume *scoringPerVolume,HitRecord *hitRecord)
+__global__ void TransportElectrons(Track *electrons,
+				   const adept::MParray *active,
+				   Secondaries secondaries,
+                                   adept::MParray *activeQueue,
+				   adept::MParray *relocateQueue,
+                                   GlobalScoring *globalScoring,
+				   ScoringPerVolume *scoringPerVolume,
+				   HitRecord *hitRecord, 
+				   int *eventNumber,
+				   ScoringPerParticle *scoringPerParticle
+				   )
 {
-  TransportElectrons</*IsElectron*/ true>(electrons, active, secondaries, activeQueue, relocateQueue, globalScoring,
-                                          scoringPerVolume, hitRecord);
+  TransportElectrons</*IsElectron*/ true>(electrons, 
+					  active,
+					  secondaries,
+					  activeQueue,
+					  relocateQueue,
+					  globalScoring,
+                                          scoringPerVolume, 
+					  hitRecord, 
+					  eventNumber,
+					  scoringPerParticle
+					  );
 }
-__global__ void TransportPositrons(Track *positrons, const adept::MParray *active, Secondaries secondaries,
-                                   adept::MParray *activeQueue, adept::MParray *relocateQueue,
-                                   GlobalScoring *globalScoring, ScoringPerVolume *scoringPerVolume, HitRecord *hitRecord)
+__global__ void TransportPositrons(Track *positrons,
+				   const adept::MParray *active,
+				   Secondaries secondaries,
+                                   adept::MParray *activeQueue,
+				   adept::MParray *relocateQueue,
+                                   GlobalScoring *globalScoring,
+				   ScoringPerVolume *scoringPerVolume,
+				   HitRecord *hitRecord, 
+				   int *eventNumber,
+				   ScoringPerParticle *scoringPerParticle
+				   )
 {
-  TransportElectrons</*IsElectron*/ false>(positrons, active, secondaries, activeQueue, relocateQueue, globalScoring,
-                                           scoringPerVolume,hitRecord);
+  TransportElectrons</*IsElectron*/ false>(positrons, 
+					   active, 
+					   secondaries, 
+					   activeQueue, 
+					   relocateQueue, 
+					   globalScoring,
+                                           scoringPerVolume,
+					   hitRecord, 
+					   eventNumber,
+					   scoringPerParticle
+					   );
 }
