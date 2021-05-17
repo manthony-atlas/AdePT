@@ -34,7 +34,8 @@ static __device__ __forceinline__ void TransportElectrons(Track *electrons,
                                                           ScoringPerVolume *scoringPerVolume,
 							  HitRecord *hitRecord,
 							  int *eventNumber,
-							  ScoringPerParticle *scoringPerParticle
+							  ScoringPerParticle *scoringPerParticle,
+							  cudaStream_t mystream
 							  )
 {
   constexpr int Charge  = IsElectron ? -1 : 1;
@@ -168,7 +169,10 @@ static __device__ __forceinline__ void TransportElectrons(Track *electrons,
       int threadIndex=threadIdx.x+blockIdx.x*blockDim.x; 
       // de-ref ptr to get original val
       int evtnum=*eventNumber;
-      printf("Event No.: %i, ThreadID %i, VolumeID %i, Hit location: X= %f Y= %f Z=%f \n",evtnum,threadIndex,volumeID,hit_location_x_pos,hit_location_y_pos,hit_location_z_pos);
+      long int *streamIDref=(long int*)mystream;
+      long int streamID=*streamIDref;
+      printf("Event No.: %i ThreadID %i, Stream %li",evtnum,threadIndex,streamID);
+      //      printf("Event No.: %i, ThreadID %i, Stream %li, VolumeID %i, Hit location: X= %f Y= %f Z=%f \n",evtnum,streamID,threadIndex,volumeID,hit_location_x_pos,hit_location_y_pos,hit_location_z_pos);
       //now fill our event level counter
       atomicAdd(&scoringPerParticle->numHits_per_particle[evtnum],1);            
       activeQueue->push_back(slot);
@@ -284,7 +288,8 @@ __global__ void TransportElectrons(Track *electrons,
 				   ScoringPerVolume *scoringPerVolume,
 				   HitRecord *hitRecord, 
 				   int *eventNumber,
-				   ScoringPerParticle *scoringPerParticle
+				   ScoringPerParticle *scoringPerParticle,
+				   cudaStream_t mystream
 				   )
 {
   TransportElectrons</*IsElectron*/ true>(electrons, 
@@ -296,7 +301,8 @@ __global__ void TransportElectrons(Track *electrons,
                                           scoringPerVolume, 
 					  hitRecord, 
 					  eventNumber,
-					  scoringPerParticle
+					  scoringPerParticle,
+					  mystream
 					  );
 }
 __global__ void TransportPositrons(Track *positrons,
@@ -308,7 +314,8 @@ __global__ void TransportPositrons(Track *positrons,
 				   ScoringPerVolume *scoringPerVolume,
 				   HitRecord *hitRecord, 
 				   int *eventNumber,
-				   ScoringPerParticle *scoringPerParticle
+				   ScoringPerParticle *scoringPerParticle,
+				   cudaStream_t mystream
 				   )
 {
   TransportElectrons</*IsElectron*/ false>(positrons, 
@@ -320,6 +327,7 @@ __global__ void TransportPositrons(Track *positrons,
                                            scoringPerVolume,
 					   hitRecord, 
 					   eventNumber,
-					   scoringPerParticle
+					   scoringPerParticle,
+					   mystream
 					   );
 }

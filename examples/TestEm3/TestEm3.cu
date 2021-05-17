@@ -240,7 +240,7 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
   const size_t QueueSize       = adept::MParray::SizeOfInstance(Capacity);
 
   ParticleType particles[ParticleType::NumParticleTypes];
-  for (int i = 0; i < ParticleType::NumParticleTypes; i++) {
+  for (int i = 0; i < ParticleType::NumParticleTypes; i++) {    
     COPCORE_CUDA_CHECK(cudaMalloc(&particles[i].tracks, TracksSize));
 
     COPCORE_CUDA_CHECK(cudaMalloc(&particles[i].slotManager, ManagerSize));
@@ -250,7 +250,9 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
     COPCORE_CUDA_CHECK(cudaMalloc(&particles[i].queues.relocate, QueueSize));
     InitParticleQueues<<<1, 1>>>(particles[i].queues, Capacity);
 
+    //    unsigned int streamFlag=(i+1); // needed to shift by 1 to skip the 0 stream - don't want it in the null stream
     COPCORE_CUDA_CHECK(cudaStreamCreate(&particles[i].stream));
+    //COPCORE_CUDA_CHECK(cudaStreamCreateWithFlags(&particles[i].stream,streamFlag));
     COPCORE_CUDA_CHECK(cudaEventCreate(&particles[i].event));
   }
   COPCORE_CUDA_CHECK(cudaDeviceSynchronize());
@@ -261,6 +263,8 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
 
   // Create a stream to synchronize kernels of all particle types.
   cudaStream_t stream;
+  unsigned int synchstreamflag=(ParticleType::NumParticleTypes+2); 
+  //  COPCORE_CUDA_CHECK(cudaStreamCreateWithFlags(&stream,synchstreamflag));
   COPCORE_CUDA_CHECK(cudaStreamCreate(&stream));
 
   // Allocate memory to score charged track length and energy deposit per volume.
@@ -411,7 +415,8 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
         transportBlocks = std::min(transportBlocks, MaxBlocks);
 
         relocateBlocks = std::min(numElectrons, MaxBlocks);
-
+	
+	
         TransportElectrons<<<transportBlocks, TransportThreads, 0, electrons.stream>>>(
 										       electrons.tracks, 
 										       electrons.queues.currentlyActive,
@@ -422,7 +427,8 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
 										       scoringPerVolume,
 										       hitRecord,
 										       event_number,
-										       scoringPerParticle);
+										       scoringPerParticle,
+										       electrons.stream);
 
         RelocateToNextVolume<<<relocateBlocks, RelocateThreads, 0, electrons.stream>>>(electrons.tracks,
                                                                                        electrons.queues.relocate);
@@ -449,7 +455,9 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
 	    scoringPerVolume,
 	    hitRecord,
 	    event_number,
-	    scoringPerParticle);
+	    scoringPerParticle,
+	    positrons.stream
+										       );
 
         RelocateToNextVolume<<<relocateBlocks, RelocateThreads, 0, positrons.stream>>>(positrons.tracks,
                                                                                        positrons.queues.relocate);
@@ -467,8 +475,15 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
         relocateBlocks = std::min(numGammas, MaxBlocks);
 
         TransportGammas<<<transportBlocks, TransportThreads, 0, gammas.stream>>>(
-            gammas.tracks, gammas.queues.currentlyActive, secondaries, gammas.queues.nextActive, gammas.queues.relocate,
-            globalScoring, scoringPerVolume);
+            gammas.tracks,
+	    gammas.queues.currentlyActive,
+	    secondaries,
+	    gammas.queues.nextActive,
+	    gammas.queues.relocate,
+            globalScoring, 
+	    scoringPerVolume,
+	    event_number,
+	    scoringPerParticle);
 
         RelocateToNextVolume<<<relocateBlocks, RelocateThreads, 0, gammas.stream>>>(gammas.tracks,
                                                                                     gammas.queues.relocate);
@@ -563,7 +578,7 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
   COPCORE_CUDA_CHECK(cudaFree(globalScoring));
   COPCORE_CUDA_CHECK(cudaFree(scoringPerVolume));
   COPCORE_CUDA_CHECK(cudaFree(nhits_per_particle));
-  COPCORE_CUDA_CHECK(cudaFree(scoringPerEvent));
+  COPCORE_CUDA_CHECK(cudaFree(scoringPerParticle));
   // clear entries in the hit record
 
   COPCORE_CUDA_CHECK(cudaFree(pos_x));

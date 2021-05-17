@@ -27,7 +27,7 @@ struct HitRecord{
   double *pos_y;
   double *pos_z;
   int *hit_volumeID; // volumeID of the object which generated the hit
-  int EventNumber; // Basically this is because each event might be launched asynchronously - would prefer to connect this in a better way
+  int* EventNumber; // Basically this is because each event might be launched asynchronously - would prefer to connect this in a better way
 };
 struct ScoringPerVolume {
   double *energyDeposit;

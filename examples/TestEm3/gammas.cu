@@ -20,7 +20,7 @@ __device__ struct G4HepEmGammaManager gammaManager;
 
 __global__ void TransportGammas(Track *gammas, const adept::MParray *active, Secondaries secondaries,
                                 adept::MParray *activeQueue, adept::MParray *relocateQueue,
-                                GlobalScoring *globalScoring, ScoringPerVolume *scoringPerVolume)
+                                GlobalScoring *globalScoring, ScoringPerVolume *scoringPerVolume, int* eventNumber, ScoringPerParticle *scoringPerParticle)
 {
   int activeSize = active->size();
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < activeSize; i += blockDim.x * gridDim.x) {
@@ -82,11 +82,7 @@ __global__ void TransportGammas(Track *gammas, const adept::MParray *active, Sec
       // For now, just count that we hit something.
       atomicAdd(&globalScoring->hits, 1);
       atomicAdd(&scoringPerVolume->numHits[volumeID],1.0);
-      //      double numHits=*(&scoringPerVolume->numHits[volumeID]);
-      //      if(volumeID==10)
-      //	printf("Photons: VolumeID %i, numHits %f \n",volumeID,numHits);
-
-      // if we have a hit here
+      atomicAdd(&scoringPerParticle->numHits_per_particle[*eventNumber],1);
       
       activeQueue->push_back(slot);
       relocateQueue->push_back(slot);
