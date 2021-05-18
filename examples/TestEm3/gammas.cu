@@ -20,7 +20,7 @@ __device__ struct G4HepEmGammaManager gammaManager;
 
 __global__ void TransportGammas(Track *gammas, const adept::MParray *active, Secondaries secondaries,
                                 adept::MParray *activeQueue, adept::MParray *relocateQueue,
-                                GlobalScoring *globalScoring, ScoringPerVolume *scoringPerVolume, int* eventNumber, ScoringPerParticle *scoringPerParticle)
+                                GlobalScoring *globalScoring, ScoringPerVolume *scoringPerVolume, int* eventNumber, ScoringPerParticle *scoringPerParticle, int *mystream_Stride)
 {
   int activeSize = active->size();
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < activeSize; i += blockDim.x * gridDim.x) {
@@ -84,6 +84,17 @@ __global__ void TransportGammas(Track *gammas, const adept::MParray *active, Sec
       atomicAdd(&scoringPerVolume->numHits[volumeID],1.0);
       atomicAdd(&scoringPerParticle->numHits_per_particle[*eventNumber],1);
       
+      int streamIndex=2 * (*mystream_Stride); // streamID=2 for photons - stream i
+      int threadIndex=threadIdx.x+blockIdx.x*blockDim.x; 
+      // de-ref ptr to get original val
+      int evtnum=*eventNumber;
+      int threadStreamIndex=threadIndex+streamIndex;
+      /*printf("Event Number: %i, Thread Index %i, Stream ID %i, Stream+ThreadID %i \n",
+	     evtnum,
+	     threadIndex,
+	     2,
+	     threadStreamIndex);
+      */
       activeQueue->push_back(slot);
       relocateQueue->push_back(slot);
 

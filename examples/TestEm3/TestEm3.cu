@@ -376,6 +376,7 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
     // Initialize primary particles.
     constexpr int InitThreads = 32;
     int initBlocks            = (chunk + InitThreads - 1) / InitThreads;
+
     ParticleGenerator electronGenerator(electrons.tracks, electrons.slotManager, electrons.queues.currentlyActive);
     InitPrimaries<<<initBlocks, InitThreads>>>(electronGenerator, startEvent, chunk, energy, startX, world_dev,
                                                globalScoring);
@@ -394,12 +395,21 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
     int iterNo = 0;
     
 
-
+    
 
     int event_number_dev=startEvent;
     int* event_number=nullptr;
     COPCORE_CUDA_CHECK(cudaMalloc(&event_number,sizeof(int)));
     COPCORE_CUDA_CHECK(cudaMemcpy(event_number,&event_number_dev,sizeof(int),cudaMemcpyHostToDevice));
+
+    // Use a stream stride to uniquely identify the stream - modular mathematics  -> since thread, blocks are indexed in a modular way need to add entries in the same way
+    int streamStride = MaxBlocks; 
+    printf("Stream stride : %i \n",streamStride);
+
+    int *streamStride_DevPtr = nullptr;
+    COPCORE_CUDA_CHECK(cudaMalloc(&streamStride_DevPtr,sizeof(int)));
+    COPCORE_CUDA_CHECK(cudaMemcpy(streamStride_DevPtr,&streamStride,sizeof(int),cudaMemcpyHostToDevice));
+    
     
     do {
       Secondaries secondaries = {
@@ -415,8 +425,8 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
         transportBlocks = std::min(transportBlocks, MaxBlocks);
 
         relocateBlocks = std::min(numElectrons, MaxBlocks);
-	
-	
+
+
         TransportElectrons<<<transportBlocks, TransportThreads, 0, electrons.stream>>>(
 										       electrons.tracks, 
 										       electrons.queues.currentlyActive,
@@ -428,7 +438,8 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
 										       hitRecord,
 										       event_number,
 										       scoringPerParticle,
-										       electrons.stream);
+										       streamStride_DevPtr
+										       );
 
         RelocateToNextVolume<<<relocateBlocks, RelocateThreads, 0, electrons.stream>>>(electrons.tracks,
                                                                                        electrons.queues.relocate);
@@ -456,8 +467,8 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
 	    hitRecord,
 	    event_number,
 	    scoringPerParticle,
-	    positrons.stream
-										       );
+	    streamStride_DevPtr
+);
 
         RelocateToNextVolume<<<relocateBlocks, RelocateThreads, 0, positrons.stream>>>(positrons.tracks,
                                                                                        positrons.queues.relocate);
@@ -483,7 +494,8 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
             globalScoring, 
 	    scoringPerVolume,
 	    event_number,
-	    scoringPerParticle);
+	    scoringPerParticle,
+	    streamStride_DevPtr);
 
         RelocateToNextVolume<<<relocateBlocks, RelocateThreads, 0, gammas.stream>>>(gammas.tracks,
                                                                                     gammas.queues.relocate);
@@ -539,6 +551,7 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
       std::cout << " ... ";
     }
     COPCORE_CUDA_CHECK(cudaFree(event_number));
+    COPCORE_CUDA_CHECK(cudaFree(streamStride_DevPtr));
   }
   std::cout << "done!" << std::endl;
 

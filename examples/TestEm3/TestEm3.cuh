@@ -145,14 +145,14 @@ __global__ void RelocateToNextVolume(Track *allTracks, const adept::MParray *rel
 
 __global__ void TransportElectrons(
     Track *electrons, const adept::MParray *active, Secondaries secondaries, adept::MParray *activeQueue,
-    adept::MParray *relocateQueue, GlobalScoring *globalScoring, ScoringPerVolume *scoringPerVolume, HitRecord *hitRecord, int *eventNumber, ScoringPerParticle *scoringPerParticle, cudaStream_t mystream);
+    adept::MParray *relocateQueue, GlobalScoring *globalScoring, ScoringPerVolume *scoringPerVolume, HitRecord *hitRecord, int *eventNumber, ScoringPerParticle *scoringPerParticle, int* mystream_stride);
 __global__ void TransportPositrons(
     Track *positrons, const adept::MParray *active, Secondaries secondaries, adept::MParray *activeQueue,
-    adept::MParray *relocateQueue, GlobalScoring *globalScoring, ScoringPerVolume *scoringPerVolume, HitRecord *hitRecord, int *eventNumber, ScoringPerParticle *scoringPerParticle, cudaStream_t mystream);
+    adept::MParray *relocateQueue, GlobalScoring *globalScoring, ScoringPerVolume *scoringPerVolume, HitRecord *hitRecord, int *eventNumber, ScoringPerParticle *scoringPerParticle, int* mystream_stride);
 
 __global__ void TransportGammas(Track *gammas, const adept::MParray *active, Secondaries secondaries,
                                 adept::MParray *activeQueue, adept::MParray *relocateQueue,
-                                GlobalScoring *globalScoring, ScoringPerVolume *scoringPerVolume, int* eventNumber, ScoringPerParticle *scoringPerParticle);
+                                GlobalScoring *globalScoring, ScoringPerVolume *scoringPerVolume, int* eventNumber, ScoringPerParticle *scoringPerParticle, int *mystream_Stride);
 
 // Constant data structures from G4HepEm accessed by the kernels.
 // (defined in TestEm3.cu)

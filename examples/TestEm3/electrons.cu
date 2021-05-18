@@ -35,7 +35,7 @@ static __device__ __forceinline__ void TransportElectrons(Track *electrons,
 							  HitRecord *hitRecord,
 							  int *eventNumber,
 							  ScoringPerParticle *scoringPerParticle,
-							  cudaStream_t mystream
+							  int *mystream_stride
 							  )
 {
   constexpr int Charge  = IsElectron ? -1 : 1;
@@ -166,13 +166,36 @@ static __device__ __forceinline__ void TransportElectrons(Track *electrons,
       double hit_location_y_pos=hit_location[1];
       double hit_location_z_pos=hit_location[2];
       // let's see if we can also get the thread ID
+      int streamID=0;
+      int stride=*mystream_stride;
+      if(IsElectron){
+	streamID=0;
+      }
+      else{
+	streamID=1;
+      }
+      int streamIndex=streamID*stride;
+      
       int threadIndex=threadIdx.x+blockIdx.x*blockDim.x; 
+      int threadID=threadIdx.x;
+      int blockID=blockIdx.x;
       // de-ref ptr to get original val
       int evtnum=*eventNumber;
-      long int *streamIDref=(long int*)mystream;
-      long int streamID=*streamIDref;
-      printf("Event No.: %i ThreadID %i, Stream %li",evtnum,threadIndex,streamID);
+      int threadStreamIndex=threadIdx.x+blockDim.x*(blockIdx.x+streamIndex);
+      //      printf("Electron");
+      printf("Event Number: %i, Thread ID %i, Block ID %i, Thread Index %i, Stream ID %i, Stream+ThreadID %i, Streamstride %i \n",
+	     evtnum,
+	     threadID,
+	     blockID,
+	     threadIndex,
+	     streamID,
+	     threadStreamIndex,
+	     stride);
+
+      //debug to print the unique identifier for each thread and stream combination
+      //      printf("Event No.: %i ThreadID %i, Stream %li",evtnum,threadIndex,streamID);
       //      printf("Event No.: %i, ThreadID %i, Stream %li, VolumeID %i, Hit location: X= %f Y= %f Z=%f \n",evtnum,streamID,threadIndex,volumeID,hit_location_x_pos,hit_location_y_pos,hit_location_z_pos);
+
       //now fill our event level counter
       atomicAdd(&scoringPerParticle->numHits_per_particle[evtnum],1);            
       activeQueue->push_back(slot);
@@ -289,7 +312,7 @@ __global__ void TransportElectrons(Track *electrons,
 				   HitRecord *hitRecord, 
 				   int *eventNumber,
 				   ScoringPerParticle *scoringPerParticle,
-				   cudaStream_t mystream
+				   int *mystream_stride
 				   )
 {
   TransportElectrons</*IsElectron*/ true>(electrons, 
@@ -302,7 +325,7 @@ __global__ void TransportElectrons(Track *electrons,
 					  hitRecord, 
 					  eventNumber,
 					  scoringPerParticle,
-					  mystream
+					  mystream_stride
 					  );
 }
 __global__ void TransportPositrons(Track *positrons,
@@ -315,7 +338,7 @@ __global__ void TransportPositrons(Track *positrons,
 				   HitRecord *hitRecord, 
 				   int *eventNumber,
 				   ScoringPerParticle *scoringPerParticle,
-				   cudaStream_t mystream
+				   int *mystream_stride
 				   )
 {
   TransportElectrons</*IsElectron*/ false>(positrons, 
@@ -328,6 +351,6 @@ __global__ void TransportPositrons(Track *positrons,
 					   hitRecord, 
 					   eventNumber,
 					   scoringPerParticle,
-					   mystream
+					   mystream_stride
 					   );
 }
