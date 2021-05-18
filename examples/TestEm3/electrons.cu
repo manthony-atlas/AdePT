@@ -152,13 +152,10 @@ static __device__ __forceinline__ void TransportElectrons(Track *electrons,
       atomicAdd(&globalScoring->hits, 1);
       // additional per volume info
       atomicAdd(&scoringPerVolume->numHits[volumeID],1);
-      //some debug, since CUDA allows it
-      //int myID=volumeID;
-      //double numHits=*(&scoringPerVolume->numHits[volumeID]);
-      //lets look at a specific case and see what it does:
-      //      if (myID==10)
-      //	printf("Electrons: VolumeID %i, numHits %f \n",myID,numHits);
-
+      //now fill our event level counter
+      int evtnum=*eventNumber;      
+      atomicAdd(&scoringPerParticle->numHits_per_particle[evtnum],1);            
+ 
       //now that we know it hit something get the position of said hit
       vecgeom::Vector3D<vecgeom::Precision> hit_location=currentTrack.pos;
       //retrieve the x,y,z coordinates from the hit location
@@ -180,24 +177,45 @@ static __device__ __forceinline__ void TransportElectrons(Track *electrons,
       int threadID=threadIdx.x;
       int blockID=blockIdx.x;
       // de-ref ptr to get original val
-      int evtnum=*eventNumber;
+
       int threadStreamIndex=threadIdx.x+blockDim.x*(blockIdx.x+streamIndex);
-      //      printf("Electron");
-      printf("Event Number: %i, Thread ID %i, Block ID %i, Thread Index %i, Stream ID %i, Stream+ThreadID %i, Streamstride %i \n",
+
+      //now get the hit
+      int hit_number=scoringPerParticle->numHits_per_particle[evtnum];
+      int hit_stride=2e6; //
+
+      int nStream=3; // currently there are 3 streams only in use for particle transport - find a better way to do it at some point
+
+      //index each unique hit in the array:
+      //using some nasty formula from stack overflow to do the indexing correctly (somehow) https://stackoverflow.com/questions/20992156/need-of-an-algorithm-for-arrays-index-in-a-flat-representation
+      //arrays are indexed as follows:
+      // N dim representation: 
+      // (Hit, Stream, Block, Thread)
+      //formula from stack overflow:
+      //  Array[N,M,K,L] - > 1d rep is Array[N*M*K*L]
+      //  flat_index(i,j,k,l) -> 1d rep -> (M*N*K)*i+(M*N)*j+M*k+l
+      long int indexfirstpart=(nStream) * (hit_stride) * (blockDim.x);
+      long int indexsecondpart=(nStream)* (hit_stride);
+      long int indexthirdpart=(hit_stride);	
+      long int threadStreamHitindex=(indexfirstpart) * hit_number + (indexsecondpart)* streamID+(indexthirdpart) * blockIdx.x  + threadIdx.x;
+      
+      
+      printf("Event Number: %i, Thread ID %i, Block ID %i, Thread Index %i, Stream ID %i, Stream+ThreadID %i, Streamstride %i, Unique hit identifier %li \n",
 	     evtnum,
 	     threadID,
 	     blockID,
 	     threadIndex,
 	     streamID,
 	     threadStreamIndex,
-	     stride);
-
+	     stride,
+	     threadStreamHitindex
+	     );
+      printf("customID %li\n",threadStreamHitindex);
       //debug to print the unique identifier for each thread and stream combination
       //      printf("Event No.: %i ThreadID %i, Stream %li",evtnum,threadIndex,streamID);
       //      printf("Event No.: %i, ThreadID %i, Stream %li, VolumeID %i, Hit location: X= %f Y= %f Z=%f \n",evtnum,streamID,threadIndex,volumeID,hit_location_x_pos,hit_location_y_pos,hit_location_z_pos);
 
-      //now fill our event level counter
-      atomicAdd(&scoringPerParticle->numHits_per_particle[evtnum],1);            
+
       activeQueue->push_back(slot);
       relocateQueue->push_back(slot);
 

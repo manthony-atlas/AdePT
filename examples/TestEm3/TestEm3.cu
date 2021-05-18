@@ -552,7 +552,7 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
     }
     COPCORE_CUDA_CHECK(cudaFree(event_number));
     COPCORE_CUDA_CHECK(cudaFree(streamStride_DevPtr));
-  }
+  } // end of batch loop
   std::cout << "done!" << std::endl;
 
   auto time = timer.Stop();
