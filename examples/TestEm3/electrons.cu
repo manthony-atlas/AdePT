@@ -164,14 +164,14 @@ static __device__ __forceinline__ void TransportElectrons(Track *electrons,
       double hit_location_z_pos=hit_location[2];
       // let's see if we can also get the thread ID
       int streamID=0;
-      int stride=*mystream_stride;
+      int streamstride=*mystream_stride;
       if(IsElectron){
 	streamID=0;
       }
       else{
 	streamID=1;
       }
-      int streamIndex=streamID*stride;
+      int streamIndex=streamID*streamstride;
       
       int threadIndex=threadIdx.x+blockIdx.x*blockDim.x; 
       int threadID=threadIdx.x;
@@ -185,19 +185,16 @@ static __device__ __forceinline__ void TransportElectrons(Track *electrons,
       int hit_stride=2e6; //
 
       int nStream=3; // currently there are 3 streams only in use for particle transport - find a better way to do it at some point
-
-      //index each unique hit in the array:
-      //using some nasty formula from stack overflow to do the indexing correctly (somehow) https://stackoverflow.com/questions/20992156/need-of-an-algorithm-for-arrays-index-in-a-flat-representation
-      //arrays are indexed as follows:
-      // N dim representation: 
-      // (Hit, Stream, Block, Thread)
-      //formula from stack overflow:
-      //  Array[N,M,K,L] - > 1d rep is Array[N*M*K*L]
-      //  flat_index(i,j,k,l) -> 1d rep -> (M*N*K)*i+(M*N)*j+M*k+l
-      long int indexfirstpart=(nStream) * (hit_stride) * (blockDim.x);
-      long int indexsecondpart=(nStream)* (hit_stride);
-      long int indexthirdpart=(hit_stride);	
-      long int threadStreamHitindex=(indexfirstpart) * hit_number + (indexsecondpart)* streamID+(indexthirdpart) * blockIdx.x  + threadIdx.x;
+      // 4 indices mapped into a single one: particle/batch, stream, block,thread
+      // basically this maps what might be otherwise 4-dimensional (hit,stream,block,thread) into a 1D array for CUDA
+      // uses formula (X,Y,Z,W) -> dim4_index= x+ y*dim(X) + z*dim(Y)*dim(X)+w*dim(Z)*dim(Y)*dim(X).
+      // effectively this procedure is a flattening "row-wise " in 4D, and involves modular maths of strides. This flattening also produces a unique index guaranteed by the stride definition.
+      long int index_first_term=hit_number; // x
+      long int index_second_term=streamID*hit_stride; // y*dim(X)
+      long int index_third_term=blockIdx.x * nStream * hit_stride; // z*dim(Y)*dim(X)
+      long int index_fourth_term=threadIdx.x* nStream* hit_stride* blockDim.x; // w*dim(Z)*dim(Y)*dim(X)
+      long int threadStreamHitindex=index_first_term+index_second_term+index_third_term+index_fourth_term;
+      
       
       
       printf("Event Number: %i, Thread ID %i, Block ID %i, Thread Index %i, Stream ID %i, Stream+ThreadID %i, Streamstride %i, Unique hit identifier %li \n",
@@ -207,10 +204,10 @@ static __device__ __forceinline__ void TransportElectrons(Track *electrons,
 	     threadIndex,
 	     streamID,
 	     threadStreamIndex,
-	     stride,
+	     streamstride,
 	     threadStreamHitindex
 	     );
-      printf("customID %li\n",threadStreamHitindex);
+
       //debug to print the unique identifier for each thread and stream combination
       //      printf("Event No.: %i ThreadID %i, Stream %li",evtnum,threadIndex,streamID);
       //      printf("Event No.: %i, ThreadID %i, Stream %li, VolumeID %i, Hit location: X= %f Y= %f Z=%f \n",evtnum,streamID,threadIndex,volumeID,hit_location_x_pos,hit_location_y_pos,hit_location_z_pos);
