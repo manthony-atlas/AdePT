@@ -222,10 +222,11 @@ int main(int argc, char *argv[])
   // need 2D array: first containing volume ID, second containing the value (so need to alloc number of hits)
   // this last number is a "chicken/egg" problem -really need dynamic GPU memory allocation here!! As the number of hits per volume is not known apriori
   // Set it to 100k at the moment for testing
-  int nStream=4;
-  int nThread=1024;
-  int max_nHits_per_volume=1e9;
-  double hit_pos_x[NumVolumes * max_nHits_per_volume]; 
+  int nStreams=4;
+  int nThreads=32;
+  int nBlocks=1024;
+  int max_nHits_per_volume=1e5;
+  double hit_pos_x[nStreams*nThreads*nBlocks * max_nHits_per_volume]; 
   double hit_pos_y[NumVolumes * max_nHits_per_volume];
   double hit_pos_z[NumVolumes * max_nHits_per_volume];
   int myhit_volumeID[NumVolumes * max_nHits_per_volume];
