@@ -128,16 +128,22 @@ const void CreateVecGeomWorld()
   //
   auto gapSolid = new vecgeom::UnplacedBox(0.5 * GapThickness, 0.5 * CalorSizeYZ, 0.5 * CalorSizeYZ);
   auto gapLogic = new vecgeom::LogicalVolume("Gap", gapSolid);
+  // define air gap as non-sensitive
+  gapLogic->SetSensitivity(1);
   vecgeom::Transformation3D gapPlacement(-0.5 * LayerThickness + 0.5 * GapThickness, 0, 0);
 
   auto absorberSolid = new vecgeom::UnplacedBox(0.5 * AbsorberThickness, 0.5 * CalorSizeYZ, 0.5 * CalorSizeYZ);
   auto absorberLogic = new vecgeom::LogicalVolume("Absorber", absorberSolid);
+  //absorber is sensitive
+  absorberLogic->SetSensitivity(1);
   vecgeom::Transformation3D absorberPlacement(0.5 * LayerThickness - 0.5 * AbsorberThickness, 0, 0);
 
+  
   // Create a new LogicalVolume per layer, we need unique IDs for scoring.
   double xCenter = -0.5 * CalorThickness + 0.5 * LayerThickness;
   for (int i = 0; i < NbOfLayers; i++) {
     auto layerLogic = new vecgeom::LogicalVolume("Layer", layerSolid);
+    layerLogic->SetSensitivity(1);
     vecgeom::Transformation3D placement(xCenter, 0, 0);
     calorLogic->PlaceDaughter(layerLogic, &placement);
 
@@ -194,6 +200,32 @@ int main(int argc, char *argv[])
   CreateVecGeomWorld();
 
   const vecgeom::VPlacedVolume *world = vecgeom::GeoManager::Instance().GetWorld();
+  // homebrew code for removing the const, updating the 
+  /*  std::cout<<"Matt's code start"<<std::endl;
+  vecgeom::VPlacedVolume* modworld=const_cast<vecgeom::VPlacedVolume*>(world);
+  std::cout<<"did const cast (removal)"<<std::endl;
+  if(world==nullptr){
+    std::cout<<"input is a nullptr"<<std::endl;
+  }
+  if(modworld==nullptr){
+    std::cout<<"wtf I got a nullptr"<<std::endl;
+  }
+  int world_id=modworld->id();
+  std::cout<<"got the ID"<<std::endl;
+
+
+  
+  if(world_id%2==0){
+    modworld->SetSensitivity(1);
+  }
+  else{
+    modworld->SetSensitivity(0);
+  }
+  
+  std::cout<<"Set Sensitivity"<<std::endl;
+  world=const_cast<const vecgeom::VPlacedVolume*>(modworld);
+  std::cout<<"Matt's code end"<<std::endl;
+  */
 #ifdef VERBOSE
   std::cout << "World (ID " << world->id() << ")" << std::endl;
   PrintDaughters(world);

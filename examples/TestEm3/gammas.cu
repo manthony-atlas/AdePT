@@ -25,7 +25,17 @@ __global__ void TransportGammas(Track *gammas, const adept::MParray *active, Sec
     const int slot      = (*active)[i];
     Track &currentTrack = gammas[slot];
     auto volume         = currentTrack.currentState.Top();
+    const auto LogicalVolume = volume->GetLogicalVolume();
     int volumeID        = volume->id();
+    // check sensitivity of volumeID
+    int sensitivity=(volume->IsSensitive());
+    if(sensitivity>0)
+      printf("Sensitivity %i, volumeID %i \n",sensitivity,volumeID);
+    
+    int logvolID=(LogicalVolume->id());
+    int log_sensitivity=(LogicalVolume->IsSensitive());
+    printf("Logical volume %i is sensitive? %i, and corresponds to placed vol %i\n",logvolID,log_sensitivity,volumeID);
+
     int theMCIndex      = MCIndex[volumeID];
 
     // Init a track with the needed data to call into G4HepEm.
