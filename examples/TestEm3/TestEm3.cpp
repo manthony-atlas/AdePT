@@ -108,6 +108,7 @@ const void CreateVecGeomWorld()
 {
   auto worldSolid = new vecgeom::UnplacedBox(0.5 * WorldSizeX, 0.5 * WorldSizeYZ, 0.5 * WorldSizeYZ);
   auto worldLogic = new vecgeom::LogicalVolume("World", worldSolid);
+  worldLogic->SetSensitivity(1);
   vecgeom::VPlacedVolume *worldPlaced = worldLogic->Place();
 
   //
@@ -115,6 +116,7 @@ const void CreateVecGeomWorld()
   //
   auto calorSolid = new vecgeom::UnplacedBox(0.5 * CalorThickness, 0.5 * CalorSizeYZ, 0.5 * CalorSizeYZ);
   auto calorLogic = new vecgeom::LogicalVolume("Calorimeter", calorSolid);
+  calorLogic->SetSensitivity(2);
   vecgeom::Transformation3D origin;
   worldLogic->PlaceDaughter(calorLogic, &origin);
 
@@ -128,16 +130,20 @@ const void CreateVecGeomWorld()
   //
   auto gapSolid = new vecgeom::UnplacedBox(0.5 * GapThickness, 0.5 * CalorSizeYZ, 0.5 * CalorSizeYZ);
   auto gapLogic = new vecgeom::LogicalVolume("Gap", gapSolid);
+  gapLogic->SetSensitivity(3);
   vecgeom::Transformation3D gapPlacement(-0.5 * LayerThickness + 0.5 * GapThickness, 0, 0);
 
   auto absorberSolid = new vecgeom::UnplacedBox(0.5 * AbsorberThickness, 0.5 * CalorSizeYZ, 0.5 * CalorSizeYZ);
   auto absorberLogic = new vecgeom::LogicalVolume("Absorber", absorberSolid);
+  absorberLogic->SetSensitivity(4);
   vecgeom::Transformation3D absorberPlacement(0.5 * LayerThickness - 0.5 * AbsorberThickness, 0, 0);
 
   // Create a new LogicalVolume per layer, we need unique IDs for scoring.
   double xCenter = -0.5 * CalorThickness + 0.5 * LayerThickness;
   for (int i = 0; i < NbOfLayers; i++) {
     auto layerLogic = new vecgeom::LogicalVolume("Layer", layerSolid);
+    layerLogic->SetSensitivity(i+10);
+    printf("layer %i has sensitivity %i\n",i,layerLogic->IsSensitive());
     vecgeom::Transformation3D placement(xCenter, 0, 0);
     calorLogic->PlaceDaughter(layerLogic, &placement);
 
@@ -171,6 +177,19 @@ void PrintScoringPerVolume(const vecgeom::VPlacedVolume *placed, const ScoringPe
   }
 }
 
+void PrintLayerSensitivity(const vecgeom::VPlacedVolume* placed, int level=0){
+  //function to print status of the solid
+  //use recursive function to get all of the sub-components
+  for(auto *daughter: placed->GetDaughters()){
+    std::cout<<std::setw(level*2)<< "";
+    auto logicalVolume=daughter->GetLogicalVolume();
+    int id=logicalVolume->id();
+    int sens=logicalVolume->IsSensitive();
+    std::cout<<"logical volume ID: "<< id <<", Sensitivity: "<< sens<<" recurs. level: "<<level<<std::endl;
+    PrintLayerSensitivity(daughter,level+1);
+  }
+}
+
 void InitBVH()
 {
   vecgeom::cxx::BVHManager::Init();
@@ -194,6 +213,9 @@ int main(int argc, char *argv[])
   CreateVecGeomWorld();
 
   const vecgeom::VPlacedVolume *world = vecgeom::GeoManager::Instance().GetWorld();
+  
+  PrintLayerSensitivity(world);
+
 #ifdef VERBOSE
   std::cout << "World (ID " << world->id() << ")" << std::endl;
   PrintDaughters(world);
