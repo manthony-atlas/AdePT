@@ -34,7 +34,8 @@ __global__ void TransportGammas(Track *gammas, const adept::MParray *active, Sec
     
     int logvolID=(LogicalVolume->id());
     int log_sensitivity=(LogicalVolume->IsSensitive());
-    printf("Logical volume %i is sensitive? %i, and corresponds to placed vol %i\n",logvolID,log_sensitivity,volumeID);
+    if(log_sensitivity>-1)
+      printf("Logical volume %i is sensitive? %i, and corresponds to placed vol %i\n",logvolID,log_sensitivity,volumeID);
 
     int theMCIndex      = MCIndex[volumeID];
 

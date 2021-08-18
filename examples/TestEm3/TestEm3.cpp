@@ -129,7 +129,7 @@ const void CreateVecGeomWorld()
   auto gapSolid = new vecgeom::UnplacedBox(0.5 * GapThickness, 0.5 * CalorSizeYZ, 0.5 * CalorSizeYZ);
   auto gapLogic = new vecgeom::LogicalVolume("Gap", gapSolid);
   // define air gap as non-sensitive
-  gapLogic->SetSensitivity(1);
+  gapLogic->SetSensitivity(0);
   vecgeom::Transformation3D gapPlacement(-0.5 * LayerThickness + 0.5 * GapThickness, 0, 0);
 
   auto absorberSolid = new vecgeom::UnplacedBox(0.5 * AbsorberThickness, 0.5 * CalorSizeYZ, 0.5 * CalorSizeYZ);
