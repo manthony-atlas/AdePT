@@ -42,6 +42,17 @@ static __device__ __forceinline__ void TransportElectrons(Track *electrons, cons
     int volumeID        = volume->id();
     int theMCIndex      = MCIndex[volumeID];
 
+    const vecgeom::LogicalVolume* logical_vol= volume->GetLogicalVolume();
+    for (auto* daughter:logical_vol->GetDaughters()){
+      auto myvol=daughter->GetLogicalVolume();
+      int logvol_ID=myvol->id();
+      int sensitivity=myvol->IsSensitive();
+      if(0==1){
+	printf("Sensitivity of volume ID %i is: %i \n",logvol_ID,sensitivity);
+      }
+    }
+    
+
     // Init a track with the needed data to call into G4HepEm.
     G4HepEmElectronTrack elTrack;
     G4HepEmTrack *theTrack = elTrack.GetTrack();

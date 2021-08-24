@@ -185,7 +185,8 @@ void PrintLayerSensitivity(const vecgeom::VPlacedVolume* placed, int level=0){
     auto logicalVolume=daughter->GetLogicalVolume();
     int id=logicalVolume->id();
     int sens=logicalVolume->IsSensitive();
-    std::cout<<"logical volume ID: "<< id <<", Sensitivity: "<< sens<<" recurs. level: "<<level<<std::endl;
+    std::string name=logicalVolume->GetLabel();
+    std::cout<<"logical volume ID: "<< id <<", name: "<<name<<", Sensitivity: "<< sens<<" recurs. level: "<<level<<std::endl;
     PrintLayerSensitivity(daughter,level+1);
   }
 }

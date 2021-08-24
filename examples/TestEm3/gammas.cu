@@ -26,15 +26,6 @@ __global__ void TransportGammas(Track *gammas, const adept::MParray *active, Sec
     Track &currentTrack = gammas[slot];
     auto volume         = currentTrack.navState.Top();
     int volumeID        = volume->id();
-    const vecgeom::LogicalVolume* logical_vol= volume->GetLogicalVolume();
-    for (auto* daughter:logical_vol->GetDaughters()){
-      auto myvol=daughter->GetLogicalVolume();
-      int logvol_ID=myvol->id();
-      int sensitivity=myvol->IsSensitive();
-      if(sensitivity< -42){
-	printf("Sensitivity of volume ID %i is: %i \n",logvol_ID,sensitivity);
-      }
-    }
     
     int theMCIndex      = MCIndex[volumeID];
 

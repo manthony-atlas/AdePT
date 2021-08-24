@@ -197,7 +197,10 @@ void TestEm3(const vecgeom::cxx::VPlacedVolume *world, int numParticles, double 
   auto &cudaManager = vecgeom::cxx::CudaManager::Instance();
   cudaManager.LoadGeometry(world);
   cudaManager.Synchronize();
-
+  std::cout<<"GEOMETRY DEBUG START"<<std::endl;
+  cudaManager.PrintGeometry();
+  COPCORE_CUDA_CHECK(cudaDeviceSynchronize());
+  std::cout<<"END GEOMETRY DEBUG"<<std::endl;
   const vecgeom::cuda::VPlacedVolume *world_dev = cudaManager.world_gpu();
 
   InitBVH();
